@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h2>WebSocket Chat</h2>
+    
+    <div>
+        <input type="text" id="username" placeholder="Your name">
+        <input type="text" id="message" placeholder="Type a message...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <h3>Chat Messages:</h3>
+    <ul id="chat"></ul>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script>
+        let stompClient = null;
+
+        function connect() {
+            let socket = new SockJS("http://localhost:8080/ws"); // Connect to the WebSocket endpoint
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, function (frame) {
+                console.log("Connected: " + frame);
+
+                // Subscribe to "/topic/messages" to receive messages
+                stompClient.subscribe("/topic/messages", function (message) {
+                    let output = JSON.parse(message.body);
+                    showMessage(output);
+                });
+            });
+        }
+
+        function sendMessage() {
+            let user = document.getElementById("username").value;
+            let text = document.getElementById("message").value;
+
+            if (!user || !text) {
+                alert("Please enter your name and a message!");
+                return;
+            }
+
+            let msg = { from: user, body: text };
+            stompClient.send("/app/chat", {}, JSON.stringify(msg));
+            document.getElementById("message").value = ""; // Clear input
+        }
+
+        function showMessage(output) {
+            let chat = document.getElementById("chat");
+            let messageElement = document.createElement("li");
+            // Convert server timestamp to JavaScript Date object
+            let messageTime = new Date(output.date.split('.')[0] + 'Z');  
+            console.log(messageTime);
+            // Format in local time with hours, minutes, and seconds
+            let formattedTime = messageTime.toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+
+            // Update message element with formatted time
+            messageElement.innerHTML = `<strong>${output.from}:</strong> ${output.body} <em>(${formattedTime})</em>`;
+            chat.appendChild(messageElement);
+            console.log("v2");
+        }
+
+        connect();
+    </script>
+</body>
+</html>
