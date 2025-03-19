@@ -1,12 +1,12 @@
 package com.example.operational_transform.controllers;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 
+import com.example.operational_transform.dto.EditDTO;
 import com.example.operational_transform.dto.Message;
 import com.example.operational_transform.dto.OutputMessage;
 
@@ -18,4 +18,12 @@ public class ChatController {
     public OutputMessage send (Message message){
         return new OutputMessage(message.getFrom(),message.getBody(), LocalDateTime.now());
     }
+
+    @MessageMapping("/editCollector")
+    @SendTo("/topic/editDistributor")
+    public EditDTO handelEdits (EditDTO incomingEdits){
+        System.out.println(incomingEdits);
+        return incomingEdits;
+    }
+
 }
