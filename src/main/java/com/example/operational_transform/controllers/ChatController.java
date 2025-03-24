@@ -26,4 +26,11 @@ public class ChatController {
         return incomingEdits;
     }
 
+    @MessageMapping("/syncCopyCollector")
+    @SendTo("/topic/syncCopyDistributor")
+    public String handelSync (String message){
+        return message;
+    }
+
+
 }

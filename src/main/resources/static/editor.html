@@ -29,8 +29,11 @@
     <script>
         
         console.log("Initializing Monaco Editor and WebSocket...");
+        let isProgrammaticEdit = false;
+        let lastEdit ;
+        let isSynced = false;
 
-        // ✅ Load Monaco Editor properly
+        // Load Monaco Editor properly
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
         require(["vs/editor/editor.main"], function () {
             window.editor = monaco.editor.create(document.getElementById('editor'), {
@@ -39,21 +42,29 @@
                 theme: "vs-dark"
             });
 
-            // ✅ Ensure Monaco Editor is ready before accessing model
+            // Ensure Monaco Editor is ready before accessing model
             const model = window.editor.getModel();
             let editHistory = [];
 
+            
+            // Sending Changes
             model.onDidChangeContent((event) => {
+                if(JSON.stringify(event.changes) == JSON.stringify(lastEdit)){
+                    return ;
+                }
                 editHistory.push(event);
                 console.log("Edit captured:", event);
-                sendMessage(event);
+                event.id = Date.now();
+                addMessageToQueueAndTrigger(event);
+                
             });
 
-            // ✅ Now connect WebSocket (after SockJS is loaded)
+            // Now connect WebSocket (after SockJS is loaded)
             connect();
         });
 
         let stompClient = null;
+
 
         function connect() {
             if (typeof SockJS === "undefined") {
@@ -68,20 +79,74 @@
                 console.log("Connected: " + frame);
 
                 // Subscribe to "/topic/messages" to receive messages
+                // Reciving Changes
                 stompClient.subscribe("/topic/editDistributor", function (message) {
                     let output = JSON.parse(message.body);
+                    if(sentMessage != null &&sentMessage != undefined && output.id == sentMessage.id){
+                        sentMessage = null;
+                    }
+                    else{
+                        lastEdit = output.changes;
+                        editor.getModel().applyEdits(output.changes,false);
+                    }
                     showMessage(output);
+                    triggerSend();
                 });
+
+                stompClient.subscribe("/topic/syncCopyDistributor", function (message) {
+                //  console.log("Sync : "+message); 
+                    if(!isSynced){
+                        editor.setValue(message.body);
+                        isSynced = true;
+                    }
+                    
+                });
+
             });
         }
 
+        messageQueue = [];
+        sentMessage = null;
+        
+        function addMessageToQueueAndTrigger (event){
+            messageQueue.push(event);
+            triggerSend();            
+        }
+
+        function triggerSend (){
+            if(sentMessage == null || sendMessage == undefined){
+                sentMessage = messageQueue.shift();
+                sendMessage(sentMessage);
+            }
+            else{
+                return ;
+            }
+        }
+
         function sendMessage(event) {
+            if(sentMessage == null || sendMessage == undefined){
+                return ;
+            }
             if (stompClient && stompClient.connected) {
                 stompClient.send("/app/editCollector", {}, JSON.stringify(event));
             } else {
                 console.warn("WebSocket is not connected!");
             }
         }
+
+        setTimeout(function(){
+            isSynced = true;
+        },10000)
+
+        setInterval(function(){
+            console.log("sending Sync");
+            if(isSynced){
+                stompClient.send("/app/syncCopyCollector", {}, editor.getValue());
+            }
+        },4000)
+
+        
+
 
         function showMessage(output) {
             console.log(output);

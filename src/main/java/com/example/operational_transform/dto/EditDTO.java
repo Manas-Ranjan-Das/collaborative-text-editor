@@ -8,6 +8,7 @@ public class EditDTO {
     private List<ChangeDTO> changes;
     private String eol;
     private int versionId;
+    private long id;
 
     @JsonProperty("isEolChange") // Force output as "isEolChange"
     private boolean isEolChange;
@@ -80,5 +81,13 @@ public class EditDTO {
 
     public void setFlush(boolean flush) {
         isFlush = flush;
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 }
